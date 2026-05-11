@@ -2,5 +2,5 @@
 
 A simple UNIX shell written in C.
 
-## Author
+## Authors
 Razan Kashr and Mayasem
