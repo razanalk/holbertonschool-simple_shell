@@ -21,6 +21,31 @@ char *trim(char *str)
 }
 
 /**
+ * split - Splits a string into an array of words
+ * @str: String to split
+ * Return: Array of strings
+ */
+char **split(char *str)
+{
+	char **argv;
+	char *token;
+	int i = 0;
+
+	argv = malloc(sizeof(char *) * 64);
+	if (!argv)
+		return (NULL);
+
+	token = strtok(str, " \t");
+	while (token)
+	{
+		argv[i++] = token;
+		token = strtok(NULL, " \t");
+	}
+	argv[i] = NULL;
+	return (argv);
+}
+
+/**
  * main - Entry point for the simple shell
  * Return: Always 0
  */
@@ -28,12 +53,11 @@ int main(void)
 {
 	char *line = NULL;
 	char *trimmed;
+	char **argv;
 	size_t len = 0;
 	ssize_t read;
-	char *argv[3];
 	pid_t pid;
 	int status;
-	char *space;
 
 	while (1)
 	{
@@ -53,20 +77,9 @@ int main(void)
 		if (trimmed[0] == '\0')
 			continue;
 
-		space = strchr(trimmed, ' ');
-		if (space)
-		{
-			*space = '\0';
-			argv[0] = trimmed;
-			argv[1] = trim(space + 1);
-			argv[2] = NULL;
-		}
-		else
-		{
-			argv[0] = trimmed;
-			argv[1] = NULL;
-			argv[2] = NULL;
-		}
+		argv = split(trimmed);
+		if (!argv)
+			continue;
 
 		pid = fork();
 		if (pid == 0)
@@ -74,12 +87,15 @@ int main(void)
 			if (execve(argv[0], argv, environ) == -1)
 			{
 				perror("./shell");
+				free(argv);
 				free(line);
 				exit(1);
 			}
 		}
 		else
 			waitpid(pid, &status, 0);
+
+		free(argv);
 	}
 
 	free(line);
