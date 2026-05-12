@@ -1,3 +1,14 @@
-.TH HSH 1
+.TH HSH 1 "May 2026" "Simple Shell"
+
 .SH NAME
-hsh - simple shell
+hsh \- simple UNIX shell
+
+.SH SYNOPSIS
+.B hsh
+
+.SH DESCRIPTION
+Simple UNIX shell written in C.
+
+.SH AUTHORS
+Razan Kashr
+Mayasem
