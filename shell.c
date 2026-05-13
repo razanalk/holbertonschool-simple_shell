@@ -10,6 +10,23 @@
 extern char **environ;
 
 /**
+ * get_path - get PATH from environment
+ * Return: PATH value
+ */
+char *get_path(void)
+{
+	int i;
+
+	for (i = 0; environ[i]; i++)
+	{
+		if (strncmp(environ[i], "PATH=", 5) == 0)
+			return (environ[i] + 5);
+	}
+
+	return (NULL);
+}
+
+/**
  * main - simple shell
  * Return: 0
  */
@@ -69,7 +86,7 @@ int main(void)
 		}
 		else
 		{
-			path = getenv("PATH");
+			path = get_path();
 
 			if (path != NULL && path[0] != '\0')
 			{
