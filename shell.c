@@ -32,8 +32,11 @@ void execute_command(char *command)
 {
 	char *path, *path_copy, *dir;
 	char full_path[1024];
-	char *argv[] = {command, NULL};
+	char *argv[2];
 	pid_t pid;
+
+	argv[0] = command;
+	argv[1] = NULL;
 
 	if (access(command, X_OK) == 0)
 	{
