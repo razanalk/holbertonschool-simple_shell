@@ -4,96 +4,7 @@
 #include <string.h>
 #include <sys/wait.h>
 
-/**
- * get_path - gets PATH environment variable
- * Return: PATH value
- */
-char *get_path(void)
-{
-	extern char **environ;
-	int i = 0;
-
-	while (environ[i])
-	{
-		if (strncmp(environ[i], "PATH=", 5) == 0)
-			return (environ[i] + 5);
-		i++;
-	}
-
-	return (NULL);
-}
-
-/**
- * execute_command - executes command
- * @command: command input
- * Return: nothing
- */
-void execute_command(char *command)
-{
-	char *path, *path_copy, *dir;
-	char full_path[1024];
-	char *argv[2];
-	pid_t pid;
-
-	argv[0] = command;
-	argv[1] = NULL;
-
-	if (access(command, X_OK) == 0)
-	{
-		pid = fork();
-
-		if (pid == 0)
-		{
-			execve(command, argv, NULL);
-			perror("./hsh");
-			exit(1);
-		}
-		else
-		{
-			wait(NULL);
-		}
-
-		return;
-	}
-
-	path = get_path();
-
-	if (!path)
-		return;
-
-	path_copy = strdup(path);
-
-	dir = strtok(path_copy, ":");
-
-	while (dir)
-	{
-		snprintf(full_path, sizeof(full_path), "%s/%s", dir, command);
-
-		if (access(full_path, X_OK) == 0)
-		{
-			pid = fork();
-
-			if (pid == 0)
-			{
-				execve(full_path, argv, NULL);
-				perror("./hsh");
-				exit(1);
-			}
-			else
-			{
-				wait(NULL);
-			}
-
-			free(path_copy);
-			return;
-		}
-
-		dir = strtok(NULL, ":");
-	}
-
-	perror("./hsh");
-	free(path_copy);
-}
+#define MAX_ARGS 64
 
 /**
  * main - simple shell
@@ -103,27 +14,59 @@ int main(void)
 {
 	char *line = NULL;
 	size_t len = 0;
+	ssize_t read;
+	pid_t pid;
+	int status;
+	char *args[MAX_ARGS];
+	char *token;
+	int i;
 
 	while (1)
 	{
-		printf(":) ");
-		fflush(stdout);
+		if (isatty(STDIN_FILENO))
+			printf(":) ");
 
-		if (getline(&line, &len, stdin) == -1)
+		read = getline(&line, &len, stdin);
+
+		if (read == -1)
 		{
 			free(line);
 			exit(0);
 		}
 
-		line[strcspn(line, "\n")] = '\0';
+		if (line[read - 1] == '\n')
+			line[read - 1] = '\0';
 
-		if (strlen(line) == 0)
+		i = 0;
+		token = strtok(line, " ");
+
+		while (token != NULL && i < MAX_ARGS - 1)
+		{
+			args[i] = token;
+			token = strtok(NULL, " ");
+			i++;
+		}
+
+		args[i] = NULL;
+
+		if (args[0] == NULL)
 			continue;
 
-		execute_command(line);
-	}
+		pid = fork();
 
-	free(line);
+		if (pid == 0)
+		{
+			if (execvp(args[0], args) == -1)
+			{
+				perror("./hsh");
+			}
+			exit(EXIT_FAILURE);
+		}
+		else
+		{
+			wait(&status);
+		}
+	}
 
 	return (0);
 }
