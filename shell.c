@@ -3,15 +3,14 @@
 #include <unistd.h>
 #include <string.h>
 #include <sys/wait.h>
-#include <sys/stat.h>
 
 #define MAX_ARGS 64
 
 extern char **environ;
 
 /**
- * get_path - get PATH from environment
- * Return: PATH value
+ * get_path - gets PATH variable
+ * Return: PATH value or NULL
  */
 char *get_path(void)
 {
@@ -27,8 +26,67 @@ char *get_path(void)
 }
 
 /**
+ * find_command - finds command in PATH
+ * @command: command name
+ * Return: full command path or NULL
+ */
+char *find_command(char *command)
+{
+	char *path, *path_copy, *dir;
+	char *full_path;
+	int len;
+
+	if (strchr(command, '/'))
+	{
+		if (access(command, X_OK) == 0)
+			return (strdup(command));
+
+		return (NULL);
+	}
+
+	path = get_path();
+
+	if (path == NULL || path[0] == '\0')
+		return (NULL);
+
+	path_copy = strdup(path);
+
+	if (path_copy == NULL)
+		return (NULL);
+
+	dir = strtok(path_copy, ":");
+
+	while (dir)
+	{
+		len = strlen(dir) + strlen(command) + 2;
+
+		full_path = malloc(len);
+
+		if (full_path == NULL)
+		{
+			free(path_copy);
+			return (NULL);
+		}
+
+		sprintf(full_path, "%s/%s", dir, command);
+
+		if (access(full_path, X_OK) == 0)
+		{
+			free(path_copy);
+			return (full_path);
+		}
+
+		free(full_path);
+		dir = strtok(NULL, ":");
+	}
+
+	free(path_copy);
+	return (NULL);
+}
+
+/**
  * main - simple shell
- * Return: 0
+ * Return: status
  */
 int main(void)
 {
@@ -37,14 +95,12 @@ int main(void)
 	ssize_t read;
 	char *args[MAX_ARGS];
 	char *token;
-	int i;
+	char *cmd_path;
 	pid_t pid;
 	int status;
-	char *path;
-	char *path_copy;
-	char *dir;
-	char full_path[1024];
-	int found;
+	int i;
+
+	status = 0;
 
 	while (1)
 	{
@@ -56,16 +112,17 @@ int main(void)
 		if (read == -1)
 		{
 			free(line);
-			exit(0);
+			exit(status);
 		}
 
 		if (line[read - 1] == '\n')
 			line[read - 1] = '\0';
 
 		i = 0;
+
 		token = strtok(line, " \t");
 
-		while (token != NULL && i < MAX_ARGS - 1)
+		while (token && i < MAX_ARGS - 1)
 		{
 			args[i] = token;
 			token = strtok(NULL, " \t");
@@ -77,47 +134,12 @@ int main(void)
 		if (args[0] == NULL)
 			continue;
 
-		found = 0;
+		cmd_path = find_command(args[0]);
 
-		if (strchr(args[0], '/'))
-		{
-			if (access(args[0], X_OK) == 0)
-				found = 1;
-		}
-		else
-		{
-			path = get_path();
-
-			if (path != NULL && path[0] != '\0')
-			{
-				path_copy = strdup(path);
-
-				if (path_copy == NULL)
-					continue;
-
-				dir = strtok(path_copy, ":");
-
-				while (dir != NULL)
-				{
-					sprintf(full_path, "%s/%s", dir, args[0]);
-
-					if (access(full_path, X_OK) == 0)
-					{
-						found = 1;
-						args[0] = full_path;
-						break;
-					}
-
-					dir = strtok(NULL, ":");
-				}
-
-				free(path_copy);
-			}
-		}
-
-		if (!found)
+		if (cmd_path == NULL)
 		{
 			fprintf(stderr, "./hsh: 1: %s: not found\n", args[0]);
+			status = 127;
 			continue;
 		}
 
@@ -125,16 +147,23 @@ int main(void)
 
 		if (pid == 0)
 		{
-			execve(args[0], args, environ);
+			execve(cmd_path, args, environ);
 			perror("./hsh");
+			free(cmd_path);
 			exit(EXIT_FAILURE);
 		}
 		else
 		{
 			wait(&status);
+
+			if (WIFEXITED(status))
+				status = WEXITSTATUS(status);
 		}
+
+		free(cmd_path);
 	}
 
 	free(line);
-	return (0);
+
+	return (status);
 }
